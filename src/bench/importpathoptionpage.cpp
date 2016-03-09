@@ -24,7 +24,7 @@ ImportPathOptionPage::ImportPathOptionPage(QWidget *parent) :
     ui(new Ui::ImportPathOptionPage)
 {
     ui->setupUi(this);
-    QSettings s;
+    QSettings s(".qmllive.config", QSettings::NativeFormat);
     int count = s.beginReadArray("imports");
     QListWidgetItem* item;
     for(int i=0; i<count; i++) {
@@ -48,7 +48,7 @@ ImportPathOptionPage::~ImportPathOptionPage()
 void ImportPathOptionPage::apply()
 {
     QStringList paths;
-    QSettings s;
+    QSettings s(".qmllive.config", QSettings::NativeFormat);
     s.beginWriteArray("imports");
     for(int i=0; i<ui->importList->count(); i++) {
         QString path(ui->importList->item(i)->text());

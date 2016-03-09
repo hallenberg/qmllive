@@ -60,7 +60,7 @@ private:
     void setupLogView();
     void setupToolBar();
     void setupMenuBar();
-    void writeSettings();
+    void writeSettings(QSettings *s);
     void resetImportPaths();
 private slots:
     void resizeToFit();

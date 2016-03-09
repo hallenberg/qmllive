@@ -198,75 +198,91 @@ void MainWindow::setupMenuBar()
 
 void MainWindow::readSettings()
 {
-    QSettings s;
-    restoreGeometry(s.value("geometry").toByteArray());
+    QSettings *s;
+    QFileInfo localConfig(".qmllive.config");
+    if (localConfig.exists()) {
+        s = new QSettings(localConfig.fileName(), QSettings::NativeFormat);
+    } else {
+        s = new QSettings();
+    }
+
+    qWarning() << "Read settings" << s->fileName();
+
+    restoreGeometry(s->value("geometry").toByteArray());
     //Only set the workspace if we didn't already set it by command line
     if (m_hub->workspace() == QDir::currentPath())
-        setWorkspace(s.value("workspace").toString());
+        setWorkspace(s->value("workspace").toString());
 
-    if(s.value("http_proxy/enabled").toBool()) {
+    if(s->value("http_proxy/enabled").toBool()) {
         QNetworkProxy proxy;
         proxy.setType(QNetworkProxy::HttpProxy);
-        proxy.setHostName(s.value("http_proxy/hostname").toString());
-        proxy.setPort(s.value("http_proxy/port").toInt());
-        proxy.setUser(s.value("http_proxy/username").toString());
-        proxy.setPassword(s.value("http_proxy/password").toString());
+        proxy.setHostName(s->value("http_proxy/hostname").toString());
+        proxy.setPort(s->value("http_proxy/port").toInt());
+        proxy.setUser(s->value("http_proxy/username").toString());
+        proxy.setPassword(s->value("http_proxy/password").toString());
         QNetworkProxy::setApplicationProxy(proxy);
     } else {
         QNetworkProxy::setApplicationProxy(QNetworkProxy());
     }
 
-    int size = s.beginReadArray("recentFolder");
+    int size = s->beginReadArray("recentFolder");
     for(int i = 0; i < size; i++) {
-        s.setArrayIndex(i);
-        m_recentFolder.append(s.value("folder").toString());
+        s->setArrayIndex(i);
+        m_recentFolder.append(s->value("folder").toString());
     }
-    s.endArray();
+    s->endArray();
 
     updateRecentFolder();
 
     //Only set the workspace if we didn't already set it by command line
     if (m_workspace->activeDocument().isEmpty()) {
-        if (s.contains("activeDocument"))
-            activateDocument(s.value("activeDocument").toString());
+        if (s->contains("activeDocument"))
+            activateDocument(s->value("activeDocument").toString());
         else
             m_workspace->activateRootPath();
     }
 
     resetImportPaths();
 
-    m_hostModel->restoreFromSettings(&s);
-    restoreState(s.value("windowState").toByteArray());
+    m_hostModel->restoreFromSettings(s);
+    restoreState(s->value("windowState").toByteArray());
+
+    delete s;
 }
 
-void MainWindow::writeSettings()
+void MainWindow::writeSettings(QSettings *s)
 {
-    QSettings s;
-    s.setValue("geometry", saveGeometry());
-    s.setValue("windowState", saveState());
-    s.setValue("workspace", m_hub->workspace());
-    s.setValue("activeDocument", m_node->activeDocument().toLocalFile());
+    qWarning() << "Write settings" << s->fileName();
 
-    s.beginWriteArray("recentFolder");
+    s->setValue("geometry", saveGeometry());
+    s->setValue("windowState", saveState());
+    s->setValue("workspace", m_hub->workspace());
+    s->setValue("activeDocument", m_node->activeDocument().toLocalFile());
+
+    s->beginWriteArray("recentFolder");
     for(int i = 0; i < m_recentFolder.count(); i++) {
-        s.setArrayIndex(i);
-        s.setValue("folder", m_recentFolder.at(i));
+        s->setArrayIndex(i);
+        s->setValue("folder", m_recentFolder.at(i));
     }
-    s.endArray();
+    s->endArray();
 
-    m_hostModel->saveToSettings(&s);
+    m_hostModel->saveToSettings(s);
 }
 
 void MainWindow::resetImportPaths()
 {
     QStringList importPaths;
-    QSettings s;
-    int count = s.beginReadArray("imports");
-    for(int i=0; i<count; i++) {
-        s.setArrayIndex(i);
-        importPaths.append(s.value("path").toString());
+
+    QFileInfo localConfig(".qmllive.config");
+    if (localConfig.exists()) {
+        QSettings s(localConfig.fileName(), QSettings::NativeFormat);
+        int count = s.beginReadArray("imports");
+        for(int i=0; i<count; i++) {
+            s.setArrayIndex(i);
+            importPaths.append(s.value("path").toString());
+        }
+        s.endArray();
     }
-    s.endArray();
 
     setImportPaths(importPaths);
 }
@@ -352,7 +368,10 @@ void MainWindow::setStaysOnTop(bool enabled)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    writeSettings();
+    QSettings globalSettings;
+    QSettings localSettings(".qmllive.config", QSettings::NativeFormat);
+    writeSettings(&localSettings);
+    writeSettings(&globalSettings);
     QMainWindow::closeEvent(event);
 }
 
